@@ -1,0 +1,13 @@
+{
+  "style": "mac",
+  "title": "gustavo@olimpo: ~",
+  "prompt": "$ ",
+  "theme": {"bg": "#0d1117", "bar": "#161b22", "border": "#30363d", "cmd": "#e6edf3", "out": "#8b949e", "title": "#8b949e"},
+  "lines": [
+    {"cmd": "whoami"},
+    "Gustavo Kogien Caraski · back-end developer",
+    {"cmd": "cat stack.txt"},
+    "TypeScript · Python · Next.js · Node.js · PostgreSQL · Docker",
+    ""
+  ]
+}

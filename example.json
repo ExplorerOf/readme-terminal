@@ -1,0 +1,19 @@
+{
+  "style": "windows",
+  "title": "Explorer_Of / Gustavo Kogien Caraski",
+  "prompt": "C:\\Users\\Explorer_Of>",
+  "lines": [
+    "Microsoft Windows [versão 10.0.26200]",
+    "",
+    {"cmd": "whoami"},
+    "Gustavo Kogien Caraski · dev back-end @ Olimpo Esportes · estudante de ADS",
+    "",
+    {"cmd": "type stack.json"},
+    "{",
+    "  \"linguagens\": [\"TypeScript\", \"Python\"],",
+    "  \"web\":        [\"Next.js\", \"Node.js\"],",
+    "  \"dados\":      [\"PostgreSQL\", \"Docker\", \"GitHub Actions\"]",
+    "}",
+    ""
+  ]
+}
