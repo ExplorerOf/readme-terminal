@@ -30,8 +30,10 @@ curl -O https://raw.githubusercontent.com/ExplorerOf/readme-terminal/main/termin
 **3. Generate the SVG:**
 
 ```bash
-python terminal_svg.py terminal.json > terminal.svg
+python terminal_svg.py terminal.json terminal.svg
 ```
+
+It stops with a clear message if the config has a typo, and warns about lines too long to fit. `python terminal_svg.py --help` lists the options.
 
 **4. Show it.** Commit `terminal.svg` to your profile repo (the one named after your username) and add this to its `README.md`:
 
@@ -138,6 +140,7 @@ All of it is SVG `<animate>` and `<set>`. Browsers play those even inside an `<i
 
 ## Tips
 
+- **Writing to stdout.** Leave out the output file and the SVG goes to stdout, for pipes and `>`. On Windows PowerShell 5.1 use the output file instead, because `>` there saves UTF-16 and breaks the SVG.
 - **Update not showing?** GitHub caches images for about five minutes. Point to `terminal.svg?v=2` and bump the number on every update.
 - **Line length.** Keep lines under about 90 characters at the default 800 px width (Linux and Mac fonts are wider than Consolas), or raise `width`.
 - **Fonts.** The text uses the visitor's own monospace font: Consolas, Cascadia Mono, Menlo or the system default.
@@ -151,10 +154,10 @@ All of it is SVG `<animate>` and `<set>`. Browsers play those even inside an `<i
 python test_terminal_svg.py
 ```
 
-The test renders every `example*.json`, checks that each command starts hidden, and fails if an example SVG is out of date. After changing the code, regenerate them:
+The test renders every `example*.json`, checks that each command starts hidden, fails if an example SVG is out of date, and makes sure bad configs are rejected. After changing the code, regenerate them:
 
 ```bash
-for f in example example-linux example-mac; do python terminal_svg.py $f.json > $f.svg; done
+for f in example example-linux example-mac; do python terminal_svg.py $f.json $f.svg; done
 ```
 
 ## License
