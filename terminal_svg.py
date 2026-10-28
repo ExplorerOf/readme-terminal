@@ -9,7 +9,7 @@ import sys
 from xml.sax.saxutils import escape
 
 DEFAULTS = {
-    "style": "windows",          # "windows" or "mac" window chrome
+    "style": "windows",          # "windows", "linux" or "mac" window chrome
     "title": "user@host",
     "prompt": "$ ",
     "width": 800,
@@ -62,6 +62,13 @@ def render(cfg):
                   '<circle cx="20" cy="17" r="6" fill="#ff5f56"/><circle cx="40" cy="17" r="6" fill="#ffbd2e"/>'
                   '<circle cx="60" cy="17" r="6" fill="#27c93f"/>'
                   f'<text x="{W/2}" y="22" text-anchor="middle" fill="{th["title"]}" font-size="13">{escape(c["title"])}</text>')
+    elif c["style"] == "linux":  # GNOME/Ubuntu: centered title, buttons on the right
+        chrome = (bar + "".join(
+                      f'<circle cx="{W-x}" cy="16" r="9" fill="{fill}"/>'
+                      f'<text x="{W-x}" y="20" text-anchor="middle" fill="#ffffff" font-size="11">{glyph}</text>'
+                      for x, fill, glyph in ((64, "#4a4a4a", "─"), (40, "#4a4a4a", "□"), (16, "#e95420", "✕"))) +
+                  f'<text x="{W/2}" y="21" text-anchor="middle" fill="{th["title"]}" font-size="13" '
+                  f'font-weight="bold">{escape(c["title"])}</text>')
     else:
         chrome = (bar +
                   f'<rect x="12" y="9" width="16" height="14" rx="2" fill="{th["bg"]}" stroke="#8a8a8a"/>'

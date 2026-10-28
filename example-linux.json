@@ -1,0 +1,17 @@
+{
+  "style": "linux",
+  "title": "explorer_of@ubuntu: ~",
+  "prompt": "explorer_of@ubuntu:~$ ",
+  "theme": {"bg": "#300a24", "bar": "#2c2c2c", "border": "#454545", "cmd": "#8ae234", "out": "#eeeeec", "title": "#eeeeec"},
+  "lines": [
+    {"cmd": "whoami"},
+    "explorer_of",
+    "",
+    {"cmd": "cat stack.json"},
+    "{ \"languages\": [\"TypeScript\", \"Python\"], \"infra\": [\"Docker\", \"PostgreSQL\"] }",
+    "",
+    {"cmd": "uptime -p"},
+    "up since Rookgaard",
+    ""
+  ]
+}
