@@ -1,0 +1,18 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 test_terminal_svg.py
+      - name: The action itself produces the committed example
+        uses: ./
+        with:
+          config: example-linux.json
+          output: /tmp/action.svg
+      - run: cmp /tmp/action.svg example-linux.svg

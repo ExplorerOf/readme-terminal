@@ -1,11 +1,16 @@
 {
   "style": "mac",
-  "title": "gustavo@olimpo: ~",
-  "prompt": "$ ",
+  "title": "explorer_of — -zsh — 80×24",
+  "prompt": [
+    {"text": "explorer_of@MacBook-Pro", "color": "#e6edf3"},
+    {"text": " ~ ", "color": "#58a6ff"},
+    {"text": "% "}
+  ],
   "theme": {"bg": "#0d1117", "bar": "#161b22", "border": "#30363d", "cmd": "#e6edf3", "out": "#8b949e", "title": "#8b949e"},
   "lines": [
     {"cmd": "whoami"},
-    "Gustavo Kogien Caraski · back-end developer",
+    "explorer_of",
+    "",
     {"cmd": "cat stack.txt"},
     "TypeScript · Python · Next.js · Node.js · PostgreSQL · Docker",
     ""

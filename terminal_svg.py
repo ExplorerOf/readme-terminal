@@ -15,17 +15,21 @@ from xml.sax.saxutils import escape
 DEFAULTS = {
     "style": "windows",          # "windows", "linux" or "mac" window chrome
     "title": "user@host",
-    "prompt": "$ ",
+    "prompt": "$ ",              # a text, or colored parts: [{"text": "me@pc", "color": "#8ae234"}, {"text": "$ "}]
     "width": 800,
     "font_size": 14,
     "char_width": 7.7,           # px per character at font_size 14 (Consolas); tune for other fonts
     "line_height": 21,
     "typing_speed": 12,          # characters per second
     "pause": 0.5,                # seconds between a command and its output
+    "loop": True,                # replay forever; false plays once and keeps the final screen
+    "hold": 5,                   # seconds the finished screen stays before replaying
     "theme": {"bg": "#0c0c0c", "bar": "#202020", "border": "#3a3a3a",
               "cmd": "#39ff14", "out": "#21c421", "title": "#d0d0d0"},
     "lines": [],
 }
+POSITIVE = ("width", "font_size", "char_width", "line_height", "typing_speed")
+NON_NEGATIVE = ("pause", "hold")
 FONT_FAMILY = "Consolas, 'Cascadia Mono', Menlo, ui-monospace, monospace"
 WIDER_FONTS = 1.1                # Menlo and Linux monospace fonts are ~10% wider than Consolas
 
@@ -39,7 +43,6 @@ CURSOR_ROOM = 8                  # extra clip width so the last typed character 
 # Timing (s)
 START_DELAY = 0.3
 OUTPUT_STEP = 0.1                # gap between output lines
-FADE_IN = 0.05
 MIN_TYPING = 0.01                # an empty command still needs a non-zero animation
 
 
@@ -53,6 +56,11 @@ def load_config(cfg: dict) -> dict:
     c = {**DEFAULTS, **cfg, "theme": {**DEFAULTS["theme"], **cfg.get("theme", {})}}
     if c["style"] not in CHROME:
         raise ValueError(f'style must be one of {", ".join(CHROME)}, got "{c["style"]}"')
+    if not isinstance(c["loop"], bool):
+        raise ValueError(f"loop must be true or false, got {c['loop']!r}")
+    for key in POSITIVE + NON_NEGATIVE:
+        check_number(key, c[key], allow_zero=key in NON_NEGATIVE)
+    c["prompt"] = prompt_parts(c["prompt"])
     for i, line in enumerate(c["lines"]):
         is_command = isinstance(line, dict) and list(line) == ["cmd"] and isinstance(line["cmd"], str)
         if not (isinstance(line, str) or is_command):
@@ -60,60 +68,109 @@ def load_config(cfg: dict) -> dict:
     return c
 
 
+def check_number(key: str, value, allow_zero: bool) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 or (value == 0 and not allow_zero):
+        raise ValueError(f"{key} must be a number {'>= 0' if allow_zero else '> 0'}, got {value!r}")
+
+
+def prompt_parts(prompt) -> list[dict]:
+    """A prompt is a text or a list of {"text", "color"} parts; always return the list form."""
+    parts = [{"text": prompt}] if isinstance(prompt, str) else prompt
+    valid = isinstance(parts, list) and all(
+        isinstance(p, dict) and isinstance(p.get("text"), str) and set(p) <= {"text", "color"} for p in parts)
+    if not valid:
+        raise ValueError('prompt must be a text or a list of {"text": "...", "color": "#..."}')
+    return parts
+
+
+def prompt_text(c: dict) -> str:
+    return "".join(part["text"] for part in c["prompt"])
+
+
 def long_lines(c: dict) -> list[str]:
     """Lines that would run past the right edge on Mac/Linux fonts."""
     max_chars = int((c["width"] - 2 * TEXT_X) / (c["char_width"] * WIDER_FONTS))
-    texts = [line if isinstance(line, str) else c["prompt"] + line["cmd"] for line in c["lines"]]
+    texts = [line if isinstance(line, str) else prompt_text(c) + line["cmd"] for line in c["lines"]]
     return [text for text in texts if len(text) > max_chars]
+
+
+# ---------------------------------------------------------------- timeline
+
+def schedule(c: dict, lines: list) -> tuple[list[float], float]:
+    """Start time of every line, and the length of one full cycle (until the replay)."""
+    starts, t = [], START_DELAY
+    for line in lines:
+        starts.append(t)
+        if isinstance(line, dict):
+            t += typing_time(c, line["cmd"]) + c["pause"]
+        elif line:
+            t += OUTPUT_STEP
+    return starts, starts[-1] + MIN_TYPING + c["hold"]
+
+
+def typing_time(c: dict, cmd: str) -> float:
+    return max(MIN_TYPING, len(cmd) / c["typing_speed"])
+
+
+def animate(c: dict, attribute: str, values: list, times: list[float], cycle: float, mode: str = "linear") -> str:
+    """One animation spanning the whole cycle, so every replay starts from a clean screen.
+
+    values[k] is reached at times[k] seconds; two equal times make an instant jump."""
+    key_times = ";".join(f"{t / cycle:.4f}" for t in times)
+    ending = 'repeatCount="indefinite"' if c["loop"] else 'fill="freeze"'
+    return (f'<animate attributeName="{attribute}" values="{";".join(map(str, values))}" keyTimes="{key_times}" '
+            f'calcMode="{mode}" dur="{cycle:.2f}s" {ending}/>')
 
 
 # ---------------------------------------------------------------- terminal body
 
 def render_lines(c: dict) -> tuple[list[str], list[str]]:
-    """Return the clip paths and <text> elements of every line, chained on one timeline."""
+    """Return the clip paths and <text> elements of every line."""
+    lines = c["lines"] + [{"cmd": ""}]  # the extra empty command holds the cursor
+    starts, cycle = schedule(c, lines)
     clips, texts = [], []
-    t = START_DELAY
-    for i, line in enumerate(c["lines"] + [{"cmd": ""}]):  # the extra empty command holds the cursor
-        y = FIRST_BASELINE + c["line_height"] * i
+    for i, (line, t) in enumerate(zip(lines, starts)):
         if isinstance(line, dict):
-            clip, text, typing = command(c, i, y, line["cmd"], t)
+            clip, text = command(c, i, line["cmd"], t, cycle)
             clips.append(clip)
             texts.append(text)
-            t += typing + c["pause"]
         elif line:
-            texts.append(output(y, line, t))
-            t += OUTPUT_STEP
+            texts.append(output(c, i, line, t, cycle))
     return clips, texts
 
 
-def command(c: dict, i: int, y: int, cmd: str, t: float) -> tuple[str, str, float]:
-    """Return the clip path, the <text> and the typing time of one command.
+def line_y(c: dict, i: int) -> int:
+    return FIRST_BASELINE + c["line_height"] * i
+
+
+def command(c: dict, i: int, cmd: str, t: float, cycle: float) -> tuple[str, str]:
+    """Return the clip path and the <text> of one command.
 
     The clip keeps the line hidden until its turn, shows the prompt, grows to "type" the
     command, then opens to full width so wider fonts (no Consolas) aren't cut."""
-    typing = max(MIN_TYPING, len(cmd) / c["typing_speed"])
-    prompt_end = TEXT_X + c["char_width"] * len(c["prompt"])
+    typed_at = t + typing_time(c, cmd)
+    prompt_end = TEXT_X + c["char_width"] * len(prompt_text(c))
     typed_end = prompt_end + c["char_width"] * len(cmd) + CURSOR_ROOM
-    clip = (f'<clipPath id="c{i}"><rect x="0" y="{y - ASCENT}" width="0" height="{c["line_height"]}">'
-            f'<animate attributeName="width" from="{prompt_end:.0f}" to="{typed_end:.0f}" '
-            f'begin="{t:.2f}s" dur="{typing:.2f}s" fill="freeze"/>'
-            f'<set attributeName="width" to="{c["width"]}" begin="{t + typing:.2f}s"/>'
-            f'</rect></clipPath>')
-    text = (f'<text x="{TEXT_X}" y="{y}" fill="{c["theme"]["cmd"]}" clip-path="url(#c{i})" '
-            f'xml:space="preserve">{escape(c["prompt"])}{escape(cmd)}{"" if cmd else cursor(t)}</text>')
-    return clip, text, typing
+    width = animate(c, "width", [0, 0, f"{prompt_end:.0f}", f"{typed_end:.0f}", c["width"], c["width"]],
+                    [0, t, t, typed_at, typed_at, cycle], cycle)
+    clip = (f'<clipPath id="c{i}"><rect x="0" y="{line_y(c, i) - ASCENT}" width="0" height="{c["line_height"]}">'
+            f'{width}</rect></clipPath>')
+    prompt = "".join(f'<tspan fill="{part["color"]}">{escape(part["text"])}</tspan>' if "color" in part
+                     else escape(part["text"]) for part in c["prompt"])
+    text = (f'<text x="{TEXT_X}" y="{line_y(c, i)}" fill="{c["theme"]["cmd"]}" clip-path="url(#c{i})" '
+            f'xml:space="preserve">{prompt}{escape(cmd)}{"" if cmd else CURSOR}</text>')
+    return clip, text
 
 
-def output(y: int, text: str, t: float) -> str:
-    """An output line that fades in at time t."""
-    return (f'<text x="{TEXT_X}" y="{y}" opacity="0" xml:space="preserve">{escape(text)}'
-            f'<animate attributeName="opacity" to="1" begin="{t:.2f}s" dur="{FADE_IN}s" fill="freeze"/></text>')
+def output(c: dict, i: int, text: str, t: float, cycle: float) -> str:
+    """An output line that appears at time t."""
+    return (f'<text x="{TEXT_X}" y="{line_y(c, i)}" opacity="0" xml:space="preserve">{escape(text)}'
+            f'{animate(c, "opacity", [0, 1], [0, t], cycle, mode="discrete")}</text>')
 
 
-def cursor(t: float) -> str:
-    """Blinking underscore, starting at time t."""
-    return (f'<tspan opacity="0">_<animate attributeName="opacity" values="1;1;0;0" dur="1s" '
-            f'begin="{t:.2f}s" repeatCount="indefinite"/></tspan>')
+# Blinks from the start; the clip of its line keeps it hidden until its turn.
+CURSOR = ('<tspan>_<animate attributeName="opacity" values="1;0" calcMode="discrete" dur="1s" '
+          'repeatCount="indefinite"/></tspan>')
 
 
 # ---------------------------------------------------------------- window chrome
@@ -162,7 +219,7 @@ def render(cfg: dict) -> str:
     """Config dict -> SVG text. Raises ValueError on a bad config."""
     c = load_config(cfg)
     th, w = c["theme"], c["width"]
-    h = FIRST_BASELINE + c["line_height"] * (len(c["lines"]) + 1) + BOTTOM_PADDING
+    h = line_y(c, len(c["lines"]) + 1) + BOTTOM_PADDING  # one extra line for the cursor
     clips, texts = render_lines(c)
     return "\n".join([
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" '

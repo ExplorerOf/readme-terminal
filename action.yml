@@ -1,0 +1,23 @@
+name: readme-terminal
+description: Generate an animated terminal SVG for your GitHub profile README from a JSON config.
+author: ExplorerOf
+branding:
+  icon: terminal
+  color: green
+
+inputs:
+  config:
+    description: JSON config file
+    default: terminal.json
+  output:
+    description: SVG file to write
+    default: terminal.svg
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        CONFIG: ${{ inputs.config }}
+        OUTPUT: ${{ inputs.output }}
+      run: python3 "$GITHUB_ACTION_PATH/terminal_svg.py" "$CONFIG" "$OUTPUT"
