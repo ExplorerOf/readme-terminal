@@ -56,8 +56,9 @@ See [example.json](example.json) and [example-mac.json](example-mac.json).
 ## Tips
 
 - GitHub caches raw files for about five minutes. If an update does not show up, reference `terminal.svg?v=2` and bump the number.
-- Keep lines under about 95 characters at the default width, or raise `width`.
-- Text uses the viewer's monospace font. If a line looks slightly cut while typing, adjust `char_width`.
+- Keep lines under about 90 characters at the default width (Mac and Linux fonts are wider than Consolas), or raise `width`.
+- Text uses the viewer's monospace font. `char_width` only paces the typing; each command is shown in full once typed.
+- After changing the code, run `python test_terminal_svg.py`.
 
 ## License
 

@@ -40,9 +40,11 @@ def render(cfg):
             txt, pw = line["cmd"], X + CW * len(prompt)
             dur = max(0.01, len(txt) / c["typing_speed"])
             w = pw + CW * len(txt) + 8
+            # hidden until its turn, typed, then unclipped so wider fonts (no Consolas) aren't cut
             defs.append(
-                f'<clipPath id="c{i}"><rect x="0" y="{y-16}" width="{pw:.0f}" height="{LH}">'
+                f'<clipPath id="c{i}"><rect x="0" y="{y-16}" width="0" height="{LH}">'
                 f'<animate attributeName="width" from="{pw:.0f}" to="{w:.0f}" begin="{t:.2f}s" dur="{dur:.2f}s" fill="freeze"/>'
+                f'<set attributeName="width" to="{W}" begin="{t+dur:.2f}s"/>'
                 f'</rect></clipPath>')
             cursor = "" if txt else (
                 f'<tspan opacity="0">_<animate attributeName="opacity" values="1;1;0;0" dur="1s" '
@@ -51,7 +53,7 @@ def render(cfg):
                         f'{escape(prompt)}{escape(txt)}{cursor}</text>')
             t += dur + c["pause"]
         elif line.get("out"):
-            body.append(f'<text x="{X}" y="{y}" fill="{th["out"]}" opacity="0" xml:space="preserve">{escape(line["out"])}'
+            body.append(f'<text x="{X}" y="{y}" opacity="0" xml:space="preserve">{escape(line["out"])}'
                         f'<animate attributeName="opacity" to="1" begin="{t:.2f}s" dur="0.05s" fill="freeze"/></text>')
             t += 0.1
     bar = f'<path d="M0.5 8 a8 8 0 0 1 8 -7.5 H{W-8.5} a8 8 0 0 1 8 7.5 V32 H0.5 Z" fill="{th["bar"]}"/>'
@@ -65,18 +67,18 @@ def render(cfg):
                   f'<rect x="12" y="9" width="16" height="14" rx="2" fill="{th["bg"]}" stroke="#8a8a8a"/>'
                   f'<text x="15" y="20" fill="{th["cmd"]}" font-size="10" font-weight="bold">&gt;_</text>'
                   f'<text x="38" y="21" fill="{th["title"]}" font-size="13">{escape(c["title"])}</text>'
-                  f'<text x="{W-100}" y="21" fill="{th["title"]}" font-size="14" xml:space="preserve">─    ☐    ✕</text>')
+                  f'<text x="{W-12}" y="21" text-anchor="end" fill="{th["title"]}" font-size="14" xml:space="preserve">─    ☐    ✕</text>')
     font = "Consolas, 'Cascadia Mono', Menlo, ui-monospace, monospace"
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
             f'font-family="{font}" font-size="{c["font_size"]}">\n'
             f'<defs>{"".join(defs)}</defs>\n'
             f'<rect x="0.5" y="0.5" width="{W-1}" height="{H-1}" rx="8" fill="{th["bg"]}" stroke="{th["border"]}"/>\n'
-            f'{chrome}\n' + "\n".join(body) + "\n</svg>\n")
+            f'{chrome}\n<g fill="{th["out"]}">\n' + "\n".join(body) + "\n</g>\n</svg>\n")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     with open(sys.argv[1], encoding="utf-8") as f:
-        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8", newline="\n")
         sys.stdout.write(render(json.load(f)))
